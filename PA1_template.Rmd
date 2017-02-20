@@ -2,7 +2,9 @@
 title: "Activity Monitoring Data"
 author: "Guilherme Ramos Casimiro"
 date: "February 19, 2017"
-output: html_document
+output:
+  html_document:
+    keep_md: true
 ---
 
 
@@ -30,7 +32,7 @@ unzip("data.zip")
 
 ## Read and clean the data
 
-
+* The NA values will be omitted
 
 ```{r pressure}
 activity <- read.csv("activity.csv")
@@ -48,7 +50,7 @@ histogram(group.activity$total, main = "Total number of steps per day", xlab = "
 
 ## Show the mean of steps taken each day 
 
-The transpose shows all the data groups.
+* The transpose shows all the data groups.
 
 ```{r mean}
 t(group.activity[,3:4])
@@ -80,13 +82,36 @@ sum(is.na(activity.na))
 
 ## Imputing missing data solution
 
-The strategy for filling in all of the missing data is to fill of zeros, because all group of missing data corresponds to a specific group of dates, e.g, the date 2012-10-01 contains only missing data to steps field.
+####The strategy for filling in all of the missing data is to fill of the mean for that 5-minute interval
+
+* take the lines with NA values
 
 ```{r missing}
 activity.na$date <- as.Date(activity.na$date)
 na_steps <- is.na(activity.na$steps)
+na_interval <- activity.na[na_steps, 3]
+```
 
-activity.na[na_steps,1] <- 0
+* This function calculate mean of the 5-minute interval for that NA value
+
+```{r function}
+fun <- function(na.interval, activity.na) {
+    i = 1
+    result <- data.frame()
+    for(index in na.interval) {
+        temp <- filter(activity.na, interval == index) %>% summarise(mean = mean(steps, na.rm = TRUE))
+        result[i,1] <- temp
+        i = i+1
+    }
+    result
+}
+```
+
+* Replace the NA values with the respective mean of the 5-minute interval value
+
+```{r}
+intervals <- fun(na_interval, activity.na)
+activity.na[na_steps,1] <- intervals[1]
 group.activity.na <- group_by(activity.na, date) %>% summarise(total = sum(steps),
                                                          mean = mean(steps), median = median(steps))
 ```
@@ -105,6 +130,7 @@ t(group.activity.na[,3:4])
 ```
 
 ## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
 
 ```{r weekdays}
 weekdays <- weekdays(activity.na$date, TRUE)
