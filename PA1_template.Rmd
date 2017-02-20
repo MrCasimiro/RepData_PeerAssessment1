@@ -1,25 +1,120 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Activity Monitoring Data"
+author: "Guilherme Ramos Casimiro"
+date: "February 19, 2017"
+output: html_document
 ---
 
 
-## Loading and preprocessing the data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(out.extra = 61)
+```
+
+## Loading the required libraries
+
+```{r library, message = FALSE}
+library(dplyr)
+library(lattice)
+```
+
+
+## Download the dataset
+
+
+```{r cars}
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(url, "data.zip")
+unzip("data.zip")
+```
+
+## Read and clean the data
 
 
 
-## What is mean total number of steps taken per day?
+```{r pressure}
+activity <- read.csv("activity.csv")
+activity <- na.omit(activity)
+activity$date <- as.Date(activity$date)
+group.activity <- group_by(activity, date) %>% summarise(total = sum(steps),
+                                                         mean = mean(steps), median = median(steps))
+```
 
+## Plot the histogram of total steps per day
 
+```{r hist}
+histogram(group.activity$total, main = "Total number of steps per day", xlab = "Number of total steps")
+```
 
-## What is the average daily activity pattern?
+## Show the mean of steps taken each day 
 
+The transpose shows all the data groups.
 
+```{r mean}
+t(group.activity[,3:4])
+```
+
+## Plot time series: mean of steps per interval across all the days
+
+```{r time series}
+group.5minute <- group_by(activity, interval) %>% summarise(mean = mean(steps, na.rm = TRUE))
+with(group.5minute, plot(interval, mean, type = "l",
+                         main = "Mean of steps per interval across all the days",
+                         xlab = "Interval", ylab = "Mean of steps"))
+```
+
+## The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r mean interval}
+filter(group.5minute,mean == max(group.5minute$mean))[1]
+```
 
 ## Imputing missing values
 
+The number of missing values in this dataset is 2304
 
+```{r missing sum}
+activity.na <- read.csv("activity.csv")
+sum(is.na(activity.na))
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+## Imputing missing data solution
+
+The strategy for filling in all of the missing data is to fill of zeros, because all group of missing data corresponds to a specific group of dates, e.g, the date 2012-10-01 contains only missing data to steps field.
+
+```{r missing}
+activity.na$date <- as.Date(activity.na$date)
+na_steps <- is.na(activity.na$steps)
+
+activity.na[na_steps,1] <- 0
+group.activity.na <- group_by(activity.na, date) %>% summarise(total = sum(steps),
+                                                         mean = mean(steps), median = median(steps))
+```
+
+## Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r hist missing}
+
+histogram(group.activity.na$total, main = "Total number of steps per day after missing values imputed", xlab = "Number of total steps")
+```
+
+The transpose shows all the data groups.
+
+```{r mean missing}
+t(group.activity.na[,3:4])
+```
+
+## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r weekdays}
+weekdays <- weekdays(activity.na$date, TRUE)
+f2 <- function(x) if(x %in% c("Sat","Sun")) "Weekend" else "Weekday"
+activity.na$week.factor <- sapply(weekdays, f2)
+group.activity.na <- group_by(activity.na, interval, week.factor) %>% summarise(mean = mean(steps))
+xyplot(mean~interval | week.factor,
+       data = group.activity.na,
+       layout = c(1,2),
+       xlab = "Interval",
+       ylab = "Number of steps",
+       type = "l")
+```
